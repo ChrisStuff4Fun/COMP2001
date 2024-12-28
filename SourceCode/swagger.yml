@@ -11,19 +11,110 @@ servers:
 
 components:
   schemas:
-
     User:
       type: "object"
-      required:
-        - email
-        - role
       properties:
-        email:
+        UserId:
+          type: "integer"
+        Email:
           type: "string"
-        role:
+        Role:
           type: "string"
 
+    Trail:
+      type: "object"
+      properties:
+        TrailId:
+          type: "integer"
+        TrailName:
+          type: "string"
+        TrailSummary:
+          type: "string"
+        TrailDescription:
+          type: "string"
+        Difficulty:
+          type: "string"
+        Location:
+          type: "string"
+        Length:
+          type: "integer"
+        Elevation:
+          type: "integer"
+        RouteType:
+          type: "string"
+        OwnerId:
+          type: "integer"
+
+    LocationPoint:
+      type: "object"
+      properties:
+        LocationPointId:
+          type: "integer"
+        Latitude:
+          type: "string"
+        Longitude:
+          type: "string"
+
+    Feature:
+      type: "object"
+      properties:
+        FeatureId:
+          type: "integer"
+        Feature:
+          type: "string"
+    
+    TrailFeature:
+      type: "object"
+      properties:
+        FeatureId:
+          type: "integer"
+        TrailId:
+          type: "integer"
+
+    TrailLocationPoint:
+      type: "object"
+      properties:
+        LocationPointId:
+          type: "integer"
+        TrailId:
+          type: "integer"
+        OrderNum:
+          type: "integer"
+
+
   parameters:
+
+    LocationPointId:
+      name: "LocationPointId"
+      description: "Id of a location point"
+      in: path
+      required: True
+      schema:
+        type: "integer"
+
+    FeatureId:
+      name: "FeatureId"
+      description: "Id of the feature"
+      in: path
+      required: True
+      schema:
+        type: "integer"
+
+    TrailId:
+      name: "TrailId"
+      description: "Id of a trail"
+      in: path
+      required: True
+      schema:
+        type: "integer"
+      
+    TrailName:
+      name: "TrailName"
+      description: "Name of a trail"
+      in: path
+      required: True
+      schema:
+        type: "string"
 
     userId:
       name: "userId"
@@ -36,7 +127,7 @@ components:
     email:
       name: "email"
       description: "email of the user"
-      in: query
+      in: path
       required: True
       schema:
         type: "string"
@@ -44,8 +135,9 @@ components:
 
 paths:
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Users
   /users:
-
     get:
       operationId: "users.getAllUsers"
       tags:
@@ -54,6 +146,8 @@ paths:
       responses:
         "200":
           description: "Successfully read users table"
+        "500":
+          description: "Server error"
 
     post:
       operationId: "users.createNewUser"
@@ -61,20 +155,44 @@ paths:
         - Users
       summary: "Create a user"
       requestBody:
-          description: "User to create"
-          required: True
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
+        description: "User to create"
+        required: True
+        content:
+           application/json:
+            schema:
+              x-body-name: "userJSON"
+              $ref: "#/components/schemas/User"
       responses:
         "201":
           description: "Successfully created user"
         "400":
           description: "Bad request"
+        "500":
+          description: "Server error"
+        
+    put:
+      tags:
+        - Users
+      operationId: "users.updateUserById"
+      summary: "Update a user"
+      requestBody:
+        description: "User to update"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "userJSON"
+              $ref: "#/components/schemas/User"
+      responses:
+        "201":
+          description: "Successfully updated user"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "User not found"
 
-  
-  /users/{UserId}:
+
+  /users/{userId}:
 
     get:
       operationId: "users.getUserById"
@@ -82,16 +200,16 @@ paths:
         - Users
       summary: "Read specified user by id"
       parameters:
-        - name: "userId"
-          in: "path"
-          required: true
-          schema:
-            type: "string"
+       - $ref: "#/components/parameters/userId"
       responses:
         "200":
           description: "Successfully read specified user"
+        "400":
+          description: "Bad request"
         "404":
           description: "User not found"
+        "500":
+          description: "Server error"
 
     delete:
       operationId: "users.deleteUserById"
@@ -103,21 +221,532 @@ paths:
       responses:
         "200":
           description: "Successfully deleted user"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "User not found"
+        "500":
+          description: "Server error"
 
-    put:
+
+  /users/email/{email}:
+    get:
+      operationId: "users.getIdByEmail"
       tags:
         - Users
-      operationId: "users.updateUserById"
-      summary: "Update a user"
+      summary: "Get specified id from email"
       parameters:
-        - $ref: "#/components/parameters/userId"
+       - $ref: "#/components/parameters/email"
       responses:
         "200":
-          description: "Successfully updated user"
+          description: "Successfully found user"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "User not found"
+        "500":
+          description: "Server error"
+
+
+  /users/{userId}/trails:
+    get:
+      operationId: "trails.getTrailByOwner"
+      tags:
+        - Users
+      summary: "Get all trails belonging to a user"
+      parameters:
+       - $ref: "#/components/parameters/userId"
+      responses:
+        "200":
+          description: "Successfully found owner"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Trails not found with owner"
+        "500":
+          description: "Server error"
+        
+
+# Users
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Trails
+
+  /trails:
+    get:
+      operationId: "trails.getTrails"
+      tags:
+        - Trails
+      summary: "Get all trails"
+      responses:
+        "200":
+          description: "OK"
+        "500":
+          description: "Server error"
+
+    post:
+      operationId: "trails.addTrail"
+      tags:
+        - Trails
+      summary: "Add a new trail"
       requestBody:
+        description: "Trail to add"
+        required: True
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/User"
-
+              x-body-name: "trailJSON"
+              $ref: "#/components/schemas/Trail"
+      responses:
+        "201":
+          description: "Successfully added trail"
+        "400":
+          description: "Bad request"
+        "401":
+          description: "Insufficient permissions to create a trail"
+        "404":
+          description: "Cannot find owner with Id given"
+        "500":
+          description: "Server error"
     
+    put:
+      operationId: "trails.updateTrailById"
+      tags:
+        - Trails
+      summary: "Update a trail"
+      requestBody:
+        description: "Trail to update"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "trailJSON"
+              $ref: "#/components/schemas/Trail"
+      responses:
+        "201":
+          description: "Successfully updated trail"
+        "400":
+          description: "Bad request"
+        "401":
+          description: "User selected cannot own a trail"
+        "404":
+          description: "New owner cannot be found"
+        "500":
+          description: "Server error"
+
+
+  /trails/{TrailId}:
+
+    get:
+      operationId: "trails.getTrailById"
+      tags:
+        - Trails
+      summary: "Get trail by Id"
+      parameters:
+       - $ref: "#/components/parameters/TrailId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "No Id provided"
+        "404":
+          description: "Trail not found"
+        "500":
+          description: "Server error"
+
+    delete:
+      operationId: "trails.deleteTrailById"
+      tags:
+        - Trails
+      summary: "Delete trail by Id"
+      parameters:
+       - $ref: "#/components/parameters/TrailId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Trail not found"
+        "500":
+          description: "Server error"
+
+  /trails/name/{TrailName}:
+    get:
+      operationId: "trails.getIdByName"
+      tags:
+        - Trails
+      summary: "Gets Id of trail of given name"
+      parameters:
+        - $ref: "#/components/parameters/TrailName"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Trail not found"
+        "500":
+          description: "Server error"
+
+# Trails
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Features
+
+  /features:
+    get:
+      operationId: "features.getFeatures"
+      tags:
+        - Features
+      summary: "Gets all features"
+      responses:
+        "200":
+          description: "OK"
+        "500":
+          description: "Server error"
+
+    post:
+      operationId: "features.addFeature"
+      tags:
+        - Features
+      summary: "Add new feature"
+      requestBody:
+        description: "Feature to add"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "pointJSON"
+              $ref: "#/components/schemas/Feature"
+      responses:
+        "201":
+          description: "Successfully added feature"
+        "400":
+          description: "Bad request"
+        "500":
+          description: "Server error"
+
+    put:
+      operationId: "features.editFeatureById"
+      tags:
+        - Features
+      summary: "Update feature"
+      requestBody:
+        description: "Feature to update"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "featureJSON"
+              $ref: "#/components/schemas/Feature"
+      responses:
+        "201":
+          description: "Successfully updated feature"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Feature not found"
+        "500":
+          description: "Server error"
+
+
+  /features/{featureId}:
+
+    get:
+      operationId: "features.getFeaturePointById"
+      tags:
+        - Features
+      summary: "Gets feature with given Id"
+      parameters:
+       - $ref: "#/components/parameters/FeatureId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Feature not found"
+        "500":
+          description: "Server error"
+
+
+    delete:
+      operationId: "features.deleteFeatureById"
+      tags:
+        - Features
+      summary: "Deletes feature with given id"
+      parameters:
+       - $ref: "#/components/parameters/FeatureId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Feature not found"
+        "500":
+          description: "Server error"
+
+# Features
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Location Points
+  /locationpoints:
+    get:
+      operationId: "locationpoints.getLocationPoints"
+      tags:
+        - Location points
+      summary: "Get all location points"
+      responses:
+        "200":
+          description: "OK"
+        "500":
+          description: "Server error"
+
+    put:
+      operationId: "locationpoints.editLocationPointById"
+      tags:
+        - Location points
+      summary: "Update location point"
+      requestBody:
+        description: "Location point to update"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "pointJSON"
+              $ref: "#/components/schemas/LocationPoint"
+      responses:
+        "201":
+          description: "Successfully updated location point"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Location point not found"
+        "500":
+          description: "Server error"
+
+    post:
+      operationId: "locationpoints.addLocationPoint"
+      tags:
+        - Location points
+      summary: "Add new location point"
+      requestBody:
+        description: "Location point to add"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "pointJSON"
+              $ref: "#/components/schemas/LocationPoint"
+      responses:
+        "201":
+          description: "Successfully added location point"
+        "400":
+          description: "Bad request"
+        "500":
+          description: "Server error"
+  
+  /locationpoints/{LocationPointId}:
+    get:
+      operationId: "locationpoint.getLocationPointById"
+      tags:
+        - Location points
+      summary: "Gets location point with given Id"
+      parameters:
+       - $ref: "#/components/parameters/LocationPointId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Location point not found"
+        "500":
+          description: "Server error"
+
+    delete:
+      operationId: "locationpoints.deleteLocationPointById"
+      tags:
+        - Location points
+      summary: "Deletes location point with given id"
+      parameters:
+       - $ref: "#/components/parameters/LocationPointId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "Location point not found"
+        "500":
+          description: "Server error"
+
+# Location Points
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Link entities
+
+  /traillocationlink:
+    post:
+      operationId: "linkhelper.newTrailLocationPoint"
+      tags:
+        - Link entity
+      summary: "Add new trail-location point link"
+      requestBody:
+        description: "Location point and trail to link"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "TrailLocationPointJSON"
+              $ref: "#/components/schemas/TrailLocationPoint"
+      responses:
+        "201":
+          description: "Successfully added trail location point"
+        "400":
+          description: "Bad request"
+        "500":
+          description: "Server error"
+
+    delete:
+      operationId: "linkhelper.deleteTrailLocationPoint"
+      tags:
+        - Link entity
+      summary: "Delete trail-location point link"
+      requestBody:
+        description: "Location point and trail to delete link of"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "TrailLocationPointJSON"
+              $ref: "#/components/schemas/TrailLocationPoint"
+      responses:
+        "201":
+          description: "Successfully deleted trail location point"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "No TrailLocationPoint found"
+        "500":
+          description: "Server error"
+
+
+  /traillocationlink/gettrails/{LocationPointId}:
+    get:
+      operationId: "linkhelper.getTrailsByLocationPoint"
+      tags:
+        - Link entity
+      summary: "Get all trails with given location point"
+      parameters:
+        - $ref: "#/components/parameters/LocationPointId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "None found"
+        "500":
+          description: "Server error"
+
+  /traillocationlink/getpoints/{TrailId}:
+    get:
+      operationId: "linkhelper.getLocationPointsByTrail"
+      tags:
+        - Link entity
+      summary: "Get all location points in a given trail"
+      parameters:
+        - $ref: "#/components/parameters/TrailId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "None found"
+        "500":
+          description: "Server error"
+
+
+  /trailfeatureslink:
+    post:
+      operationId: "linkhelper.newTrailFeature"
+      tags:
+        - Link entity
+      summary: "Add new trail-feature link"
+      requestBody:
+        description: "Feature and trail to link"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "TrailFeatureJSON"
+              $ref: "#/components/schemas/TrailFeature"
+      responses:
+        "201":
+          description: "Successfully added trail feature"
+        "400":
+          description: "Bad request"
+        "500":
+          description: "Server error"
+
+    delete:
+      operationId: "linkhelper.deleteTrailFeature"
+      tags:
+        - Link entity
+      summary: "Delete trail-feature link"
+      requestBody:
+        description: "Feature and trail to delete link of"
+        required: True
+        content:
+          application/json:
+            schema:
+              x-body-name: "TrailFeatureJSON"
+              $ref: "#/components/schemas/TrailFeature"
+      responses:
+        "201":
+          description: "Successfully deleted trail feature"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "No TrailFeature found"
+        "500":
+          description: "Server error"
+
+
+  /trailfeaturelink/gettrails/{FeatureId}:
+    get:
+      operationId: "linkhelper.getTrailsByFeature"
+      tags:
+        - Link entity
+      summary: "Get all trails with a given feature"
+      parameters:
+        - $ref: "#/components/parameters/FeatureId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "None found"
+        "500":
+          description: "Server error"
+
+  /trailfeaturelink/getfeatures/{TrailId}:
+    get:
+      operationId: "linkhelper.getFeaturesByTrail"
+      tags:
+        - Link entity
+      summary: "Get all features of a given trail"
+      parameters:
+        - $ref: "#/components/parameters/TrailId"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+        "404":
+          description: "None found"
+        "500":
+          description: "Server error"
+# Link entities
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
