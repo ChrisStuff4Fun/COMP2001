@@ -1,0 +1,123 @@
+# swagger.yml
+
+openapi: 3.0.0
+info:
+  title: "Trail microservice API"
+  description: "An API for trails"
+  version: "1.0.0"
+
+servers:
+  - url: "/api"
+
+components:
+  schemas:
+
+    User:
+      type: "object"
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: "string"
+        role:
+          type: "string"
+
+  parameters:
+
+    userId:
+      name: "userId"
+      description: "Id of the user"
+      in: path
+      required: True
+      schema:
+        type: "integer"
+
+    email:
+      name: "email"
+      description: "email of the user"
+      in: query
+      required: True
+      schema:
+        type: "string"
+
+
+paths:
+
+  /users:
+
+    get:
+      operationId: "users.getAllUsers"
+      tags:
+        - Users
+      summary: "Read the table of users"
+      responses:
+        "200":
+          description: "Successfully read users table"
+
+    post:
+      operationId: "users.createNewUser"
+      tags:
+        - Users
+      summary: "Create a user"
+      requestBody:
+          description: "User to create"
+          required: True
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+      responses:
+        "201":
+          description: "Successfully created user"
+        "400":
+          description: "Bad request"
+
+  
+  /users/{UserId}:
+
+    get:
+      operationId: "users.getUserById"
+      tags:
+        - Users
+      summary: "Read specified user by id"
+      parameters:
+        - name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "Successfully read specified user"
+        "404":
+          description: "User not found"
+
+    delete:
+      operationId: "users.deleteUserById"
+      tags:
+        - Users
+      summary: "Delete a user with given ID"
+      parameters:
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "200":
+          description: "Successfully deleted user"
+
+    put:
+      tags:
+        - Users
+      operationId: "users.updateUserById"
+      summary: "Update a user"
+      parameters:
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "200":
+          description: "Successfully updated user"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+
+    
