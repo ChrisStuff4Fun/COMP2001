@@ -38,7 +38,7 @@ def getLocationPointsByTrail(TrailId):
 
         userData = []  # Create dict obj and populate
         for row in records:
-            userData.append(locationpoints.getLocationPointById(row.LocationPointId))
+            userData.append(row.LocationPointId)
 
         return jsonify(userData)
 
@@ -65,7 +65,7 @@ def getTrailsByLocationPoint(LocationPointId):
         userData = []  # Create dict obj and populate
         for row in records:
             print (row.TrailId)
-            userData.append(trails.getTrailById(row.TrailId))
+            userData.append(row.TrailId)
         return jsonify(userData)
 
     except pyodbc.Error as e:
@@ -161,7 +161,7 @@ def getFeaturesByTrail(TrailId):
 
         userData = []  # Create dict obj and populate
         for row in records:
-            userData.append(features.getFeaturePointById(row.FeatureId))
+            userData.append(row.FeatureId)
         return jsonify(userData)
 
     except pyodbc.Error as e:
@@ -185,7 +185,7 @@ def getTrailsByFeature(FeatureId):
 
         userData = []  # Create dict obj and populate
         for row in records:
-            userData.append(trails.getTrailById(row.TrailId))
+            userData.append(row.TrailId)
         return jsonify(userData)
 
     except pyodbc.Error as e:
