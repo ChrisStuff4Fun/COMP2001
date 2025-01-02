@@ -1,9 +1,7 @@
-# trails.py
-
-from flask import abort, make_response, jsonify
+from flask import abort, make_response, jsonify, request
 import pyodbc
 import linkhelper
-
+import auth
 
 # SQL Login stuffs
 SERVER   = "DIST-6-505.uopnet.plymouth.ac.uk"
@@ -29,7 +27,7 @@ def getTrails():
         records = cursor.fetchall()
 
         if (records == None):
-            return make_response(None, 200)
+            return make_response(jsonify([]), 200)
             
         userData = []    # Create dict obj and populate
         for row in records:
@@ -59,11 +57,17 @@ def getTrails():
 # "Elevation" : int (Metres)
 # "RouteType" : String (20)
 # "OwnerId" : Foreign key - Users.UserId
-def addTrail(trailJSON):
+def addTrail():
+
+    trailJSON = request.get_json()
 
     if not trailJSON:
         print("JSON Object not parsed, stopping.")
         abort(400, "No trail provided")
+        return
+    
+    if not auth.authUser(trailJSON.get("authEmail"), trailJSON.get("authPW")) or not auth.checkOwnerPerms(trailJSON.get("authEmail")):
+        abort(401, "Access denied")
         return
 
     name        = trailJSON.get("TrailName")
@@ -77,8 +81,8 @@ def addTrail(trailJSON):
     owner       = trailJSON.get("OwnerId")
 
     # Check for nulls
-    if((name == None or "") or (difficulty == None or "") or (location == None or "") or (length == None or "") or 
-       (elevation == None or "") or (routeType == None or "") or (owner == None or "")):
+    if((name == None) or (difficulty == None) or (location == None) or (length == None) or 
+       (elevation == None) or (routeType == None) or (owner == None)):
         abort(400, "Bad request, field(s) null")
         return
     
@@ -87,24 +91,20 @@ def addTrail(trailJSON):
         abort(404, f"Cannot find user with Id: {owner}")
         return
 
-    if (not linkhelper.checkOwnerPerms(owner) ):
-        abort(401, "Insufficient permissions to create a trail")
-        return
-    
     # If we get here, fields are valid, so populate.
     try:
         cursor = conn.cursor() 
 
         SQLQuery1 = """INSERT INTO [CW2].[Trails] 
         ([TrailName], [TrailSummary], [TrailDescription], [Difficulty], [Location], [Length], [Elevation], [RouteType], [OwnerId])
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?))"""  # Build query and exec
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""  # Build query and exec
         cursor.execute(SQLQuery1, name, summary, description, difficulty, location, length, elevation, routeType, owner)
         conn.commit() # Commit changes
 
         if (cursor.rowcount > 0):  
             #Row added successfully
             print("Row added successfully")
-            return make_response(201, "Row added successfully")
+            return make_response(jsonify({"message": "Row added successfully"}), 201)
         else:
             # No rows added
             print("Failed to add row")
@@ -156,9 +156,9 @@ def getTrailById(TrailId):
 
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####
 # Gets trail JSON array with given owner
-def getTrailByOwner(OwnerId):
+def getTrailByOwner(userId):
 
-    if not OwnerId:
+    if not userId:
         print("No Id, stopping.")
         abort(400, "No OwnerId provided")
         return
@@ -166,12 +166,13 @@ def getTrailByOwner(OwnerId):
     try:
         cursor = conn.cursor()
         SQLQuery = "SELECT * FROM [CW2].[Trails] WHERE [OwnerId] = ?"
-        cursor.execute(SQLQuery, OwnerId)
-        rows = cursor.fetchone()
+        cursor.execute(SQLQuery, userId)
+        
+        rows = cursor.fetchall()
 
         if not rows:       
             print("No trail found")
-            abort( 404, f"Trails with OwnerId {OwnerId} not found.")
+            abort( 404, f"Trails with OwnerId {userId} not found.")
             return
 
         userData = []
@@ -181,7 +182,6 @@ def getTrailByOwner(OwnerId):
                           "TrailDescription" : row.TrailDescription, "Difficulty" : row.Difficulty, 
                           "Location" : row.Location, "Length" : row.Length, "Elevation" : row.Elevation,
                           "RouteType" : row.RouteType, "OwnerId" : row.OwnerId})
-           
            
         print("Trails: ", jsonify(userData))
         return make_response(jsonify(userData), 200)
@@ -209,7 +209,7 @@ def getIdByName(TrailName):
         row = cursor.fetchone()
 
         if row:
-            return make_response( {"TrailId" : row[0]}, 200) 
+            return make_response(jsonify({"TrailId" : row[0]}), 200) 
         else:
             print("No trail found")
             abort( 404, f"Trail with name {TrailName} not found.")
@@ -224,6 +224,12 @@ def getIdByName(TrailName):
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####
 # Deletes a trail with a given Id
 def deleteTrailById(TrailId):
+
+    authJSON = request.get_json()
+
+    if not auth.authUser(authJSON.get("authEmail"), authJSON.get("authPW")) or not auth.checkOwnerPerms(authJSON.get("authEmail")):
+        abort(401, "Access denied")
+        return
     
     if not TrailId:
         print("No trail provided")
@@ -242,7 +248,7 @@ def deleteTrailById(TrailId):
             linkhelper.deleteTrailFeature({"TrailId" : TrailId})   # Delete all link entities
             linkhelper.deleteTrailLocationPoint({"TrailId" : TrailId})
 
-            return make_response("Trail deleted successfully.", 200)
+            return make_response(jsonify({"message": "Trail deleted successfully."}), 200)
         else:
             print("No trail found")
             abort(404, f"No trail exists with TrailId: {TrailId}")
@@ -255,7 +261,13 @@ def deleteTrailById(TrailId):
 
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####
 # Updates a trail with given Id (In JSON obj)
-def updateTrailById(trailJSON):
+def updateTrailById():
+
+    trailJSON = request.get_json()
+
+    if not auth.authUser(trailJSON.get("authEmail"), trailJSON.get("authPW")) or not auth.checkOwnerPerms(trailJSON.get("authEmail")):
+        abort(401, "Access denied")
+        return
 
     id          = trailJSON.get("TrailId")
     name        = trailJSON.get("TrailName")
@@ -268,35 +280,32 @@ def updateTrailById(trailJSON):
     routeType   = trailJSON.get("RouteType")
     owner       = trailJSON.get("OwnerId")
 
-    if (id == None or ""):
+    if (id == None):
         abort(400, "No TrailId provided")
         return
     
-    if (owner != None or ""):
+    if (owner != None):
         # Check if owner exists
         if( not linkhelper.checkOwnerExists(owner) ):
             abort(404, f"Cannot find user with Id: {owner}")
             return
-
-        if (not linkhelper.checkOwnerPerms(owner) ):
-            abort(401, "Insufficient permissions to create a trail")
-            return
+        
     try:
         cursor = conn.cursor()
         SQLQuery = """UPDATE [CW2].[Trails] SET [TrailName] = IsNull(?, [TrailName]), [TrailSummary] = IsNull(?, [TrailSummary]), 
         [TrailDescription] = IsNull(?, [TrailDescription]), [Difficulty] = IsNull(?, [Difficulty]), [Location] = IsNull(?, [Location]), 
         [Lenghth] = IsNull(?, [Lenghth]), [Elevation] = IsNull(?, [Elevation]), [RouteType] = IsNull(?, [RouteType]),
-        [OwnerId] = IsNull(?, [OwnerId]), WHERE [TrailId] = ?"""
+        [OwnerId] = IsNull(?, [OwnerId]) WHERE [TrailId] = ?"""
         cursor.execute(SQLQuery, name, summary, description, difficulty, location, length, elevation, routeType, owner, id)
 
         if (cursor.rowcount > 0):
-            #Row added successfully
+            #Row updated successfully
             print("Row updated successfully")
-            return make_response("Row updated successfully", 201)
+            return make_response(jsonify({"message": "Row updated successfully"}), 200)
         else:
-            # No rows added
+            # No rows updated
             print("Failed to update row")
-            abort( 404, f"Trail with id {id} not found.")
+            abort(404, f"Trail with id {id} not found.")
             return
         
     except pyodbc.Error as e:

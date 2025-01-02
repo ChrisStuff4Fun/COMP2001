@@ -1,8 +1,7 @@
-# users.py
-
 from datetime import datetime
-from flask import abort, make_response, jsonify
+from flask import abort, make_response, jsonify, request
 import pyodbc
+import auth
 
 
 # SQL Login stuffs
@@ -51,18 +50,24 @@ def getAllUsers():
 
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    
 # Create new row in user table with format {"Email": email, "Role": role}
-def createNewUser(userJSON):
+def createNewUser():
+
+    userJSON = request.get_json()
 
     if not userJSON:
         print("JSON Object not parsed, stopping.")
         abort(400, "No user provided")
         return
+    
+    if not auth.authUser(userJSON.get("authEmail"), userJSON.get("authPW")) or not auth.checkOwnerPerms(userJSON.get("authEmail")):
+        abort(401, "Access denied")
+        return
 
     userEmail = userJSON.get("Email")
     userRole  = userJSON.get("Role")
-
+   
     # Check for nulls
-    if ( (userRole == None or "") or (userEmail == None or "") ):
+    if ( (userRole == None) or (userEmail == None) ):
         print("JSON field(s) empty, stopping.")
         abort(400, "Provided JSON field(s) empty")
         return 
@@ -77,9 +82,9 @@ def createNewUser(userJSON):
         conn.commit() # Commit changes
 
         if (cursor.rowcount > 0):  
-            #Row added successfully
+            # Row added successfully
             print("Row added successfully")
-            return make_response(201, "Row added successfully")
+            return make_response(jsonify({"message": "Row added successfully"}), 201)
         else:
             # No rows added
             print("Failed to add row")
@@ -93,8 +98,14 @@ def createNewUser(userJSON):
 
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    
 # Updates one or both email and role with format {"UserId" : userId, "Email": email, "Role": role}
-def updateUserById(userJSON):
+def updateUserById():
     
+    userJSON = request.get_json()
+
+    if not auth.authUser(userJSON.get("authEmail"), userJSON.get("authPW")) or not auth.checkOwnerPerms(userJSON.get("authEmail")):
+        abort(401, "Access denied")
+        return
+
     if not userJSON:
         print("JSON Object not parsed, stopping.")
         abort(400, "No user provided")
@@ -107,8 +118,8 @@ def updateUserById(userJSON):
     try:
         cursor = conn.cursor()
 
-        #Check for nulls
-        if ( ( (userRole == None or "") and (userEmail == None or "") ) or (userId == None or "") ):
+        # Check for nulls
+        if ( ( not userId or (not userRole and not userEmail) ) ) :
             # User ID CANNOT be empty, however, ONE of userRole or userEmail can be
             print("JSON fields empty, stopping.")
             abort(400, "Bad request - JSON fields empty")
@@ -119,11 +130,11 @@ def updateUserById(userJSON):
         cursor.execute(SQLQuery, userRole, userEmail, userId)
 
         if (cursor.rowcount > 0):
-            #Row added successfully
+            # Row updated successfully
             print("Row updated successfully")
-            return make_response(201, "Row updated successfully")
+            return make_response(jsonify({"message": "Row updated successfully"}), 200)
         else:
-            # No rows added
+            # No rows updated
             print("Failed to update row")
             abort( 404, f"User with id {userId} not found.")
         cursor.close()
@@ -136,6 +147,12 @@ def updateUserById(userJSON):
 ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    
 # Deletes row from Users with given Id
 def deleteUserById(userId):
+
+    userJSON = request.get_json()
+
+    if not auth.authUser(userJSON.get("authEmail"), userJSON.get("authPW")) or not auth.checkOwnerPerms(userJSON.get("authEmail")):
+        abort(401, "Access denied")
+        return
 
     if not userId:
         print("No user provided")
@@ -152,7 +169,7 @@ def deleteUserById(userId):
 
         if cursor.rowcount > 0:  # rowcount gives the number of rows affected
             print("User deleted successfully.")
-            return make_response(200, "User deleted successfully.")
+            return make_response(jsonify({"message": "User deleted successfully"}), 200)
         else:
             print("No user found")
             abort(404, f"No user exists with userId: {userId} ")
@@ -210,17 +227,10 @@ def getIdByEmail(email):
 
         if row: 
             print("User: ", row[0])
-            return make_response({"UserId" : row[0]}, 200)
+            return make_response(jsonify({"UserId" : row[0]}), 200)
         else:
             print("No user found")
             abort(404, f"User with email {email} not found.")
 
     except pyodbc.Error as e:
-        print("pyodbc Error:", e)
-        abort(500, f"Server encountered an error: {e}")
- ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    
-
-if conn is None:
-    print("Connection failed.")
-else:
-    print("Connected to DB.")
+        print("pyodbc Error")
