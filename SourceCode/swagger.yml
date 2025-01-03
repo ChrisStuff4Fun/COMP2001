@@ -745,7 +745,7 @@ paths:
           description: "Server error"
 
 
-  /trailfeaturelink/gettrails/{FeatureId}:
+  /trailfeatureslink/gettrails/{FeatureId}:
     get:
       operationId: "linkhelper.getTrailsByFeature"
       tags:

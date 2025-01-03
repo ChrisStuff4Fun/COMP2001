@@ -213,7 +213,7 @@ def newTrailFeature():
     try:
         cursor = conn.cursor()
         SQLQuery1 = "INSERT INTO [CW2].[TrailFeatures] ([FeatureId], [TrailId]) VALUES (?, ?)"
-        cursor.execute(SQLQuery1, TrailId, FeatureId)
+        cursor.execute(SQLQuery1, FeatureId, TrailId)
         conn.commit()
 
         if cursor.rowcount > 0:
